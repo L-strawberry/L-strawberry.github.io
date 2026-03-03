@@ -407,144 +407,81 @@
         //                  1. 配置模板
         // ==========================================
         const TEMPLATES = {
-            default: {
-  "log": {
-    "level": "warn",
-    "output": "./sing-box.log",
-    "timestamp": true
-  },
-  "dns": {
-    "servers": [
-      {
-        "tag": "proxy_server_dns",
-        "type": "https",
-        "server": "doh.pub",
-        "domain_resolver": "hosts"
-      },
-      {
-        "tag": "direct_dns",
-        "type": "https",
-        "server": "dns.alidns.com",
-        "domain_resolver": "hosts"
-      },
-      {
-        "tag": "proxy_dns",
-        "type": "https",
-        "server": "cloudflare-dns.com",
-        "domain_resolver": "hosts",
-        "detour": "PROXY"
-      },
-      {
-        "tag": "local",
-        "type": "local"
-      },
-      {
-        "tag": "fake-ip-dns-server",
-        "type": "fakeip",
-        "inet4_range": "198.18.0.0/15",
-        "inet6_range": "fc00::/64"
-      },
-      {
-        "tag": "hosts",
-        "type": "hosts",
-        "predefined": {
-          "dns.alidns.com": [
-            "223.5.5.5",
-            "223.6.6.6"
-          ],
-          "doh.pub": [
-            "1.12.12.21",
-            "120.53.53.53"
-          ],
-          "dns.google": [
-            "8.8.8.8",
-            "8.8.4.4"
-          ],
-          "cloudflare-dns.com": [
-            "104.16.248.249",
-            "104.16.249.249"
-          ]
-        }
-      }
-    ],
-    "rules": [
-      {
-        "clash_mode": "GLOBAL",
-        "server": "proxy_dns"
-      },
-      {
-        "domain_suffix": [
-          "market.xiaomi.com",
-          "lancache.steamcontent.com"
-        ],
-        "server": "direct_dns"
-      },
-      {
-        "query_type": [
-          "SVCB",
-          "HTTPS"
-        ],
-        "action": "predefined",
-        "rcode": "NOTIMP"
-      },
-      {
-        "query_type": [
-          "A",
-          "AAAA"
-        ],
-        "server": "fake-ip-dns-server",
-        "rewrite_ttl": 0
-      },
-      {
-        "rule_set": [
-          "ChinaDomain",
-          "ChinaIP"
-        ],
-        "server": "direct_dns"
-      },
-      {
-        "domain_suffix": [
-          ".arpa"
-        ],
-        "server": "local"
-      }
-    ],
-    "final": "proxy_dns",
-    "independent_cache": true,
-    "cache_capacity": 4096
-  },
-  "inbounds": [
-    {
-      "type": "tun",
-      "tag": "tun-in",
-      "interface_name": "singbox",
-      "mtu": 9000,
-      "address": ["172.18.0.1/30"],
-      "auto_route": true,
-      "strict_route": true,
-      "route_exclude_address": ["192.168.0.0/16"],
-      "udp_timeout": "5m0s",
-      "platform": {
-        "http_proxy": {
-          "enabled": true,
-          "server": "127.0.0.1",
-          "server_port": 20120
-        }
-      }
-    },
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "::",
-      "listen_port": 20120
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct",
-      "tag": "DIRECT",
-      "domain_resolver": "local"
-    },
+            default: 
+{
+  "log": {
+    "level": "warn",
+    "output": "./sing-box.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "direct_dns",
+        "type": "https",
+        "server": "223.5.5.5",
+        "path": "/dns-query"
+      },
+      {
+        "tag": "proxy_dns",
+        "type": "https",
+        "server": "1.1.1.1",
+        "path": "/dns-query",
+        "detour": "PROXY"
+      },
+      {
+        "tag": "fake-ip",
+        "type": "fakeip",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "rule_set": ["ChinaDomain"],
+        "server": "direct_dns"
+      },
+      {
+        "query_type": ["A","AAAA"],
+        "server": "fake-ip",
+        "rewrite_ttl": 60
+      }
+    ],
+    "final": "proxy_dns",
+    "independent_cache": true,
+    "cache_capacity": 4096
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "singbox",
+      "mtu": 9000,
+      "address": ["172.18.0.1/30"],
+      "auto_route": true,
+      "strict_route": true,
+      "route_exclude_address": ["192.168.0.0/16"],
+      "udp_timeout": "5m0s",
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 20120
+        }
+      }
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "::",
+      "listen_port": 20120
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "DIRECT",
+      "domain_resolver": "direct_dns"
+    },
     {
       "type": "block",
       "tag": "REJECT"
@@ -892,144 +829,81 @@
     }
   }
 },            
-            reF1nd: {
-  "log": {
-    "level": "warn",
-    "output": "./sing-box.log",
-    "timestamp": true
-  },
-  "dns": {
-    "servers": [
-      {
-        "tag": "proxy_server_dns",
-        "type": "https",
-        "server": "doh.pub",
-        "domain_resolver": "hosts"
-      },
-      {
-        "tag": "direct_dns",
-        "type": "https",
-        "server": "dns.alidns.com",
-        "domain_resolver": "hosts"
-      },
-      {
-        "tag": "proxy_dns",
-        "type": "https",
-        "server": "cloudflare-dns.com",
-        "domain_resolver": "hosts",
-        "detour": "PROXY"
-      },
-      {
-        "tag": "local",
-        "type": "local"
-      },
-      {
-        "tag": "fake-ip-dns-server",
-        "type": "fakeip",
-        "inet4_range": "198.18.0.0/15",
-        "inet6_range": "fc00::/64"
-      },
-      {
-        "tag": "hosts",
-        "type": "hosts",
-        "predefined": {
-          "dns.alidns.com": [
-            "223.5.5.5",
-            "223.6.6.6"
-          ],
-          "doh.pub": [
-            "1.12.12.21",
-            "120.53.53.53"
-          ],
-          "dns.google": [
-            "8.8.8.8",
-            "8.8.4.4"
-          ],
-          "cloudflare-dns.com": [
-            "104.16.248.249",
-            "104.16.249.249"
-          ]
-        }
-      }
-    ],
-    "rules": [
-      {
-        "clash_mode": "GLOBAL",
-        "server": "proxy_dns"
-      },
-      {
-        "domain_suffix": [
-          "market.xiaomi.com",
-          "lancache.steamcontent.com"
-        ],
-        "server": "direct_dns"
-      },
-      {
-        "query_type": [
-          "SVCB",
-          "HTTPS"
-        ],
-        "action": "predefined",
-        "rcode": "NOTIMP"
-      },
-      {
-        "query_type": [
-          "A",
-          "AAAA"
-        ],
-        "server": "fake-ip-dns-server",
-        "rewrite_ttl": 0
-      },
-      {
-        "rule_set": [
-          "ChinaDomain",
-          "ChinaIP"
-        ],
-        "server": "direct_dns"
-      },
-      {
-        "domain_suffix": [
-          ".arpa"
-        ],
-        "server": "local"
-      }
-    ],
-    "final": "proxy_dns",
-    "independent_cache": true,
-    "cache_capacity": 4096
-  },
-  "inbounds": [
-    {
-      "type": "tun",
-      "tag": "tun-in",
-      "interface_name": "singbox-reF1nd",
-      "mtu": 9000,
-      "address": ["172.18.0.1/30"],
-      "auto_route": true,
-      "strict_route": true,
-      "route_exclude_address": ["192.168.0.0/16"],
-      "udp_timeout": "5m0s",
-      "platform": {
-        "http_proxy": {
-          "enabled": true,
-          "server": "127.0.0.1",
-          "server_port": 20120
-        }
-      }
-    },
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "::",
-      "listen_port": 20120
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct",
-      "tag": "DIRECT",
-      "domain_resolver": "local"
-    },
+            reF1nd: 
+{
+  "log": {
+    "level": "warn",
+    "output": "./sing-box.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "direct_dns",
+        "type": "https",
+        "server": "223.5.5.5",
+        "path": "/dns-query"
+      },
+      {
+        "tag": "proxy_dns",
+        "type": "https",
+        "server": "1.1.1.1",
+        "path": "/dns-query",
+        "detour": "PROXY"
+      },
+      {
+        "tag": "fake-ip",
+        "type": "fakeip",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "rule_set": ["ChinaDomain"],
+        "server": "direct_dns"
+      },
+      {
+        "query_type": ["A","AAAA"],
+        "server": "fake-ip",
+        "rewrite_ttl": 60
+      }
+    ],
+    "final": "proxy_dns",
+    "independent_cache": true,
+    "cache_capacity": 4096
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "singbox-reF1nd",
+      "mtu": 9000,
+      "address": ["172.18.0.1/30"],
+      "auto_route": true,
+      "strict_route": true,
+      "route_exclude_address": ["192.168.0.0/16"],
+      "udp_timeout": "5m0s",
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 20120
+        }
+      }
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "::",
+      "listen_port": 20120
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "DIRECT",
+      "domain_resolver": "direct_dns"
+    },
     {
       "type": "block",
       "tag": "REJECT"
