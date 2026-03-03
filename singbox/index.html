@@ -831,427 +831,229 @@
 },            
             reF1nd: 
 {
-  "log": {
-    "level": "warn",
-    "output": "./sing-box.log",
-    "timestamp": true
-  },
-  "dns": {
-    "servers": [
-      {
-        "tag": "direct_dns",
-        "type": "https",
-        "server": "223.5.5.5",
-        "path": "/dns-query"
-      },
-      {
-        "tag": "proxy_dns",
-        "type": "https",
-        "server": "1.1.1.1",
-        "path": "/dns-query",
-        "detour": "PROXY"
-      },
-      {
-        "tag": "fake-ip",
-        "type": "fakeip",
-        "inet4_range": "198.18.0.0/15"
-      }
-    ],
-    "rules": [
-      {
-        "rule_set": ["ChinaDomain"],
-        "server": "direct_dns"
-      },
-      {
-        "query_type": ["A","AAAA"],
-        "server": "fake-ip",
-        "rewrite_ttl": 60
-      }
-    ],
-    "final": "proxy_dns",
-    "independent_cache": true,
-    "cache_capacity": 4096
-  },
-  "inbounds": [
-    {
-      "type": "tun",
-      "tag": "tun-in",
-      "interface_name": "singbox-reF1nd",
-      "mtu": 9000,
-      "address": ["172.18.0.1/30"],
-      "auto_route": true,
-      "strict_route": true,
-      "route_exclude_address": ["192.168.0.0/16"],
-      "udp_timeout": "5m0s",
-      "platform": {
-        "http_proxy": {
-          "enabled": true,
-          "server": "127.0.0.1",
-          "server_port": 20120
-        }
-      }
-    },
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "::",
-      "listen_port": 20120
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct",
-      "tag": "DIRECT",
-      "domain_resolver": "direct_dns"
-    },
-    {
-      "type": "block",
-      "tag": "REJECT"
-    },
-    {
-      "type": "selector",
-      "tag": "PROXY",
-      "outbounds": ["JP", "DIRECT"],
-      "interrupt_exist_connections": true
-    },
-    {
-      "type": "selector",
-      "tag": "EMBY",
-      "outbounds": ["PROXY", "DIRECT"],
-      "interrupt_exist_connections": true
-    },
-    {
-      "type": "selector",
-      "tag": "JP",
-      "outbounds": null,
-      "interrupt_exist_connections": true
-    },
-    {
-      "type": "selector",
-      "tag": "ADBLOCK",
-      "outbounds": ["REJECT", "PROXY", "DIRECT"],
-      "interrupt_exist_connections": true
-    }
+  "log": { "level": "error", "timestamp": true },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns_hosts",
+        "type": "hosts",
+        "predefined": {
+          "miwifi.com": [ "192.168.31.1", "127.0.0.1" ],
+          "doh.pub": [ "1.12.12.12", "120.53.53.53", "2402:4e00::" ],
+          "dns.google": [ "8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844" ]
+        }
+      },
+      // --- 国内并发组 ---
+      { "tag": "aliyun-dns", "type": "https", "server": "dns.alidns.com", "detour": "DIRECT" },
+      { "tag": "tencent-dns", "type": "https", "server": "doh.pub", "domain_resolver": "dns_hosts", "detour": "DIRECT" },
+      {
+        "tag": "dns_direct",
+        "type": "group",
+        "servers": [ "aliyun-dns", "tencent-dns" ]
+      },
+      // --- 国外并发组 ---
+      { "tag": "google-dns", "type": "https", "server": "dns.google", "domain_resolver": "dns_hosts", "detour": "PROXY" },
+      { "tag": "cloudflare-dns", "type": "https", "server": "1.1.1.1", "detour": "PROXY" },
+      {
+        "tag": "dns_proxy",
+        "type": "group",
+        "servers": [ "google-dns", "cloudflare-dns" ]
+      },
+      // --- FakeIP ---
+      { "tag": "dns_fakeip", "type": "fakeip", "inet4_range": "28.0.0.0/8", "inet6_range": "fc00::/16" }
+    ],
+    "rules": [
+      { "ip_accept_any": true, "server": "dns_hosts" },
+      { "clash_mode": [ "GLOBAL" ], "query_type": [ "A", "AAAA" ], "server": "dns_proxy" },
+      { "rule_set": [ "ads" ], "action": "predefined" },
+      { "domain": [ "services.googleapis.cn" ], "query_type": [ "A", "AAAA" ], "server": "dns_fakeip" },
+      { "rule_set": [ "private", "trackerslist", "cn" ], "query_type": [ "A", "AAAA" ], "server": "dns_direct", "rewrite_ttl": 1 },
+      { "query_type": [ "A", "AAAA" ], "server": "dns_fakeip" }
+    ],
+    "final": "dns_direct",
+    "strategy": "prefer_ipv4",
+    "independent_cache": true,
+    "reverse_mapping": true
+  },
+  "inbounds": [
+    // 启动服务时如果出现 `tun-in` 报错，可将 `"stack": "mixed"` 修改为 `"stack": "system"`
+    { "tag": "tun-in", "type": "tun", "interface_name": "sing-box", "address": [ "172.18.0.1/30", "fdfe:dcba:9876::1/126" ], "auto_route": true, "strict_route": true, "stack": "mixed" }
+  ],
+  "outbounds": [
+    {"type": "direct", "tag": "DIRECT", "domain_resolver": "dns_direct"},
+    {"type": "block", "tag": "REJECT"},
+    {"type": "selector", "tag": "PROXY", "outbounds": ["JP", "DIRECT"], "interrupt_exist_connections": true},
+    {"type": "selector", "tag": "EMBY", "outbounds": ["PROXY", "DIRECT"], "interrupt_exist_connections": true},
+    {"type": "selector", "tag": "JP", "outbounds": null, "interrupt_exist_connections": true},
+    {"type": "selector", "tag": "ADBLOCK", "outbounds": ["REJECT", "PROXY", "DIRECT"], "interrupt_exist_connections": true}
   ],
   "route": {
+    "default_domain_resolver": { "server": "dns_direct" },
     "rules": [
-      {
-        "action": "sniff"
-      },
-      {
-        "type": "logical",
-        "mode": "or",
-        "rules": [
-          {
-            "port": 53
-          },
-          {
-            "protocol": "dns"
-          }
-        ],
-        "action": "hijack-dns"
-      },
-      {
-        "action": "route-options",
-        "udp_disable_domain_unmapping": true,
-        "udp_connect": true,
-        "udp_timeout": "5m0s"
-      },
-      {
-        "ip_is_private": true,
-        "outbound": "DIRECT"
-      },
-      {
-        "domain_keyword": ["oss", "ouonet"],
-        "outbound": "DIRECT"
-      },
-      {
-        "rule_set": "Emby",
-        "outbound": "EMBY"
-      },
-      {
-        "rule_set": "Ads",
-        "outbound": "ADBLOCK"
-      },
-      {
-        "type": "logical",
-        "mode": "or",
-        "rules": [
-          {
-            "port": 3478
-          },
-          {
-            "network": "tcp",
-            "port": 5349
-          },
-          {
-            "network": "udp",
-            "port": [5350, 5351, 19302]
-          },
-          {
-            "protocol": "stun"
-          }
-        ],
-        "outbound": "DIRECT"
-      },
-      {
-        "rule_set": ["Telegram", "AI"],
-        "outbound": "JP"
-      },
-      {
-        "rule_set": [
-          "YouTube",
-          "Google",
-          "google-play",
-          "google-play@cn",
-          "Github",
-          "Twitter",
-          "Bahamut",
-          "Netflix",
-          "Disney",
-          "PrimeVideo",
-          "HBO",
-          "TikTok",
-          "AppleProxy",
-          "Spotify"
-        ],
-        "outbound": "PROXY"
-      },
-      {
-        "action": "resolve"
-      },
-      {
-        "type": "logical",
-        "mode": "or",
-        "rules": [
-          {
-            "type": "logical",
-            "mode": "and",
-            "rules": [
-              {
-                "rule_set": "Microsoft"
-              },
-              {
-                "rule_set": "OneDrive"
-              },
-              {
-                "rule_set": "ChinaDomain"
-              },
-              {
-                "rule_set": "ChinaIP"
-              }
-            ]
-          },
-          {
-            "rule_set": "ChinaIP"
-          },
-          {
-            "rule_set": ["private_domain", "private_ip"]
-          }
-        ],
-        "outbound": "DIRECT"
-      },
-      {
-        "clash_mode": "GLOBAL",
-        "outbound": "PROXY"
-      }
+      { "action": "sniff" },
+      { "protocol": [ "dns" ], "action": "hijack-dns" },
+      { "clash_mode": [ "GLOBAL" ], "outbound": "PROXY" },
+      { "rule_set": [ "private" ], "outbound": "DIRECT" },
+      { "domain_keyword": [ "oss", "ouonet" ], "outbound": "DIRECT" },
+      { "rule_set": [ "emby" ], "outbound": "EMBY" },
+      { "rule_set": [ "ads" ], "outbound": "ADBLOCK" },
+      { "rule_set": [ "trackerslist" ], "outbound": "PROXY" },
+      { "rule_set": [ "applications" ], "outbound": "DIRECT" },
+      { "rule_set": [ "microsoft-cn" ], "outbound": "DIRECT" },
+      { "rule_set": [ "apple-cn" ], "outbound": "DIRECT" },
+      { "rule_set": [ "google-cn" ], "outbound": "PROXY" },
+      { "rule_set": [ "games-cn" ], "outbound": "DIRECT" },
+      { "rule_set": [ "games" ], "outbound": "PROXY" },
+      { "rule_set": [ "ai" ], "outbound": "JP" },
+      { "rule_set": [ "networktest" ], "outbound": "PROXY" },
+      { "rule_set": [ "proxy" ], "outbound": "PROXY" },
+      { "rule_set": [ "cn" ], "outbound": "DIRECT" },
+      { "ip_is_private": true, "outbound": "DIRECT" },
+      { "rule_set": [ "telegramip" ], "outbound": "JP" },
+      { "action": "resolve", "match_only": true },
+      { "rule_set": [ "cnip" ], "outbound": "DIRECT" },
+      { "rule_set": [ "gamesip" ], "outbound": "PROXY" }
     ],
     "rule_set": [
       {
+        "tag": "ads",
         "type": "remote",
-        "tag": "Ads",
-        "url": "https://ghfast.top/raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblocksingbox.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/ads.srs",
+        "url": "https://ghfast.top/raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblocksingbox.srs"
       },
       {
+        "tag": "emby",
         "type": "remote",
-        "tag": "Emby",
-        "url": "https://gh.568641.xyz/raw.githubusercontent.com/L-strawberry/ACL4SSR_Copy/main/singbox/rules/Emby.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/Emby.srs",        
+        "url": "https://gh.568641.xyz/raw.githubusercontent.com/L-strawberry/ACL4SSR_Copy/main/singbox/rules/Emby.srs"
+      },      
+      {
+        "tag": "private",
+        "type": "remote",
+        "format": "binary",
+        "path": "./ruleset/private.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/private.srs"
       },
       {
+        "tag": "trackerslist",
         "type": "remote",
-        "tag": "private_ip",
-        "url": "https://jsd.onmicrosoft.cn/gh/DustinWin/ruleset_geodata@sing-box-ruleset/privateip.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/trackerslist.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/trackerslist.srs"
       },
       {
+        "tag": "applications",
         "type": "remote",
-        "tag": "private_domain",
-        "url": "https://jsd.onmicrosoft.cn/gh/DustinWin/ruleset_geodata@sing-box-ruleset/private.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/applications.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/applications.srs"
       },
       {
+        "tag": "microsoft-cn",
         "type": "remote",
-        "tag": "Telegram",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Telegram.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/microsoft-cn.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/microsoft-cn.srs"
       },
       {
+        "tag": "apple-cn",
         "type": "remote",
-        "tag": "YouTube",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/YouTube.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/apple-cn.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/apple-cn.srs"
       },
       {
+        "tag": "google-cn",
         "type": "remote",
-        "tag": "Google",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Google.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/google-cn.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/google-cn.srs"
       },
       {
+        "tag": "games-cn",
         "type": "remote",
-        "tag": "google-play",
-        "url": "https://ghfast.top/raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google-play.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/games-cn.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/games-cn.srs"
       },
       {
+        "tag": "games",
         "type": "remote",
-        "tag": "google-play@cn",
-        "url": "https://ghfast.top/raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google-play@cn.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/games.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/games.srs"
       },
       {
+        "tag": "ai",
         "type": "remote",
-        "tag": "Microsoft",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Microsoft.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/ai.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/ai.srs"
       },
       {
+        "tag": "networktest",
         "type": "remote",
-        "tag": "OneDrive",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/OneDrive.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/networktest.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/networktest.srs"
       },
       {
+        "tag": "proxy",
         "type": "remote",
-        "tag": "Github",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Github.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/proxy.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/proxy.srs"
       },
       {
+        "tag": "cn",
         "type": "remote",
-        "tag": "Twitter",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Twitter.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/cn.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/cn.srs"
       },
       {
+        "tag": "telegramip",
         "type": "remote",
-        "tag": "AppleProxy",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/AppleProxy.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/telegramip.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/telegramip.srs"
       },
       {
+        "tag": "cnip",
         "type": "remote",
-        "tag": "AI",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/AI.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/cnip.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/cnip.srs"
       },
       {
+        "tag": "gamesip",
         "type": "remote",
-        "tag": "Spotify",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Spotify.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "Bahamut",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Bahamut.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "Netflix",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Netflix.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "Disney",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/Disney.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "PrimeVideo",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/PrimeVideo.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "HBO",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/HBO.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "TikTok",
-        "url": "https://ghfast.top/raw.githubusercontent.com/Repcz/Tool/X/sing-box/Rules/TikTok.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "ChinaDomain",
-        "url": "https://ghfast.top/raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/cn.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
-      },
-      {
-        "type": "remote",
-        "tag": "ChinaIP",
-        "url": "https://ghfast.top/raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs",
-        "download_detour": "DIRECT",
-        "update_interval": "24h0m0s"
+        "format": "binary",
+        "path": "./ruleset/gamesip.srs",
+        "url": "https://github.com/DustinWin/ruleset_geodata/releases/download/sing-box-ruleset/gamesip.srs"
       }
     ],
     "final": "PROXY",
     "auto_detect_interface": true,
-    "default_domain_resolver": {
-      "server": "direct_dns",
-      "strategy": "ipv4_only"
-    }
+    "override_android_vpn": true
   },
   "experimental": {
     "cache_file": {
       "enabled": true,
-      "store_fakeip": true,
-      "store_rdrc": true,
-      "rdrc_timeout": "24h0m0s"
+      "store_fakeip": true
     },
     "urltest_unified_delay": true,
     "clash_api": {
       "external_controller": "127.0.0.1:9090",
       "external_ui": "ui",
-      "external_ui_download_url": "https://ghfast.top/github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip",
-      "external_ui_download_detour": "DIRECT",
+      "external_ui_download_url": "https://github.com/Zephyruso/zashboard/archive/gh-pages.zip",
       "secret": "we123456",
-      "default_mode": "RULE",
-      "access_control_allow_private_network": true
+      "default_mode": "RULE"
     }
   }
-}        
+}   
         };
 
         // 默认 ruleString 变量
