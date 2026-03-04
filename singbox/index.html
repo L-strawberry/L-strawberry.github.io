@@ -323,7 +323,7 @@
 
     <div class="config-row" style="display: flex; gap: 10px; margin-bottom: 15px; margin-top: 20px;">
         <div class="input-group" style="flex: 1;">
-            <label style="color: var(--text-secondary); font-size: 13px; white-space: nowrap;">节点规则</label>
+            <label style="color: var(--text-secondary); font-size: 13px; white-space: nowrap;">节点规则：🕳ℹ️<策略组名称1>ℹ️🏷<节点筛选正则1></label>
             <input type="text" id="ruleInput" placeholder="默认: 🕳ℹ️PROXY...🏷..." 
                   style="width: 100%; background: var(--card-bg); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 8px; margin-top: 5px; font-size: 13px;">
         </div>
@@ -364,7 +364,7 @@
                     <div class="status-dot"></div>
                     <span>等待输入</span>
                 </div>
-                <textarea id="inputArea" class="editor" placeholder="粘贴节点内容...&#10;&#10;支持格式：&#10;• 节点链接&#10;• 混合节点列表"></textarea>
+                <textarea id="inputArea" class="editor" placeholder="粘贴节点内容...&#10;&#10;支持格式（节点间隔一行）：&#10;• 节点链接&#10;• 混合节点列表"></textarea>
             </div>
         </div>
 
@@ -409,79 +409,79 @@
         const TEMPLATES = {
             default: 
 {
-  "log": {
-    "level": "warn",
-    "output": "./sing-box.log",
-    "timestamp": true
-  },
-  "dns": {
-    "servers": [
-      {
-        "tag": "direct_dns",
-        "type": "https",
-        "server": "223.5.5.5",
-        "path": "/dns-query"
-      },
-      {
-        "tag": "proxy_dns",
-        "type": "https",
-        "server": "1.1.1.1",
-        "path": "/dns-query",
-        "detour": "PROXY"
-      },
-      {
-        "tag": "fake-ip",
-        "type": "fakeip",
-        "inet4_range": "198.18.0.0/15"
-      }
-    ],
-    "rules": [
-      {
-        "rule_set": ["ChinaDomain"],
-        "server": "direct_dns"
-      },
-      {
-        "query_type": ["A","AAAA"],
-        "server": "fake-ip",
-        "rewrite_ttl": 60
-      }
-    ],
-    "final": "proxy_dns",
-    "independent_cache": true,
-    "cache_capacity": 4096
-  },
-  "inbounds": [
-    {
-      "type": "tun",
-      "tag": "tun-in",
-      "interface_name": "singbox",
-      "mtu": 9000,
-      "address": ["172.18.0.1/30"],
-      "auto_route": true,
-      "strict_route": true,
-      "route_exclude_address": ["192.168.0.0/16"],
-      "udp_timeout": "5m0s",
-      "platform": {
-        "http_proxy": {
-          "enabled": true,
-          "server": "127.0.0.1",
-          "server_port": 20120
-        }
-      }
-    },
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "::",
-      "listen_port": 20120
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct",
-      "tag": "DIRECT",
-      "domain_resolver": "direct_dns"
-    },
+  "log": {
+    "level": "warn",
+    "output": "./sing-box.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+    {
+      "tag": "direct_dns",
+      "type": "https",
+      "server": "223.5.5.5",
+      "path": "/dns-query"
+    },
+    {
+      "tag": "proxy_dns",
+      "type": "https",
+      "server": "1.1.1.1",
+      "path": "/dns-query",
+      "detour": "PROXY"
+    },
+    {
+      "tag": "fake-ip",
+      "type": "fakeip",
+      "inet4_range": "198.18.0.0/15"
+    }
+    ],
+    "rules": [
+  {
+      "rule_set": ["ChinaDomain"],
+      "server": "direct_dns"
+    },
+    {
+      "query_type": ["A","AAAA"],
+      "server": "fake-ip",
+      "rewrite_ttl": 60
+    }
+    ],
+    "final": "proxy_dns",
+    "independent_cache": true,
+    "cache_capacity": 4096
+  },
+  "inbounds": [
+    {
+    "type": "tun",
+    "tag": "tun-in",
+    "interface_name": "singbox",
+    "mtu": 9000,
+    "address": ["172.18.0.1/30"],
+    "auto_route": true,
+    "strict_route": true,
+    "route_exclude_address": ["192.168.0.0/16"],
+    "udp_timeout": "5m0s",
+    "platform": {
+      "http_proxy": {
+        "enabled": true,
+        "server": "127.0.0.1",
+        "server_port": 20120
+      }
+    }
+    },
+    {
+    "type": "mixed",
+    "tag": "mixed-in",
+    "listen": "::",
+    "listen_port": 20120
+    }
+  ],
+  "outbounds": [
+    {
+    "type": "direct",
+    "tag": "DIRECT",
+    "domain_resolver": "direct_dns"
+    },
     {
       "type": "block",
       "tag": "REJECT"
@@ -1430,90 +1430,85 @@
         // ==========================================
         function parseNodes(input) {
             let rawContent = input.trim();
-            
-            // 1. 如果整个输入是 Base64 订阅内容，先整体解码
             if (!rawContent.includes('://') && rawContent.length > 30) {
-                try {
-                    rawContent = safeBase64Decode(rawContent);
-                } catch (e) {
-                    console.error('Base64 订阅内容解码失败');
-                }
+                try { rawContent = safeBase64Decode(rawContent); } catch (e) { console.error('Base64解码失败'); }
             }
-
-            const nodes = [];
-            const lines = rawContent.split(/[\s\n]+/);
-            
+            const parsedNodes = [];
+            const lines = rawContent.split(/\n+/); // 仅按行拆分，保留 Tag 中的空格
             lines.forEach(line => {
                 line = line.trim();
                 if (!line) return;
-
                 try {
-                    // 2. 核心：调用你已经定义的 parseURI 函数进行深度解析
-                    // 这样可以同时支持 vmess/vless/ss/trojan/hysteria2
                     const node = parseURI(line);
-                    
-                    if (node && node.server) {
-                        nodes.push(node);
-                    } else {
-                        // 兜底逻辑：如果 parseURI 没识别出协议，尝试简单正则提取
-                        const protoMatch = line.match(/^([a-z0-9]+):\/\//i);
-                        if (protoMatch) {
-                            const protocol = protoMatch[1].toLowerCase();
-                            let tag = "未命名节点";
-                            if (line.includes('#')) {
-                                tag = decodeURIComponent(line.split('#')[1]);
-                            }
-                            // 即使解析不全，至少保证 tag 存在，防止 convert 函数报错
-                            nodes.push({ tag: tag, type: protocol, _raw: line });
-                        }
-                    }
-                } catch (e) {
-                    console.warn('忽略无法解析的行:', line, e);
-                }
+                    if (node && node.server) parsedNodes.push(node);
+                } catch (e) { console.warn('解析失败:', line); }
             });
-            
-            // 3. 节点名去重
-            return Array.from(new Map(nodes.map(node => [node.tag, node])).values());
+
+            const finalNodes = [];
+            const seenFingerprints = new Set();
+            const tagCounter = {};
+            parsedNodes.forEach(node => {
+                const fingerprint = `${node.type}:${node.server}:${node.server_port}:${node.uuid || node.password || node.method}`;
+                if (seenFingerprints.has(fingerprint)) return;
+                seenFingerprints.add(fingerprint);
+
+                let originalTag = node.tag.trim() || 'Node';
+                if (tagCounter[originalTag] !== undefined) {
+                    tagCounter[originalTag]++;
+                    node.tag = `${originalTag} ${tagCounter[originalTag]}`;
+                } else {
+                    tagCounter[originalTag] = 0;
+                    node.tag = originalTag;
+                }
+                finalNodes.push(node);
+            });
+            return finalNodes;
         }
 
         async function convert() {
             try {
                 const input = document.getElementById('inputArea').value;
                 const selectedKey = document.getElementById('templateSelect').value;
-                // 获取自定义规则，若为空则用默认
                 const ruleString = document.getElementById('ruleInput').value || DEFAULT_RULE_STRING;
 
-                // 1. 解析节点 (确保你的 parseNodes 支持 Base64)
                 const uniqueNodes = parseNodes(input);
                 if (uniqueNodes.length === 0) {
                     setStatus('未识别到有效节点', 'error');
                     return;
                 }
 
-                // 2. 加载选中的模板
-                let finalConfig = JSON.parse(JSON.stringify(TEMPLATES[selectedKey]));
+                let config = JSON.parse(JSON.stringify(TEMPLATES[selectedKey]));
 
-                // 3. Sub-Store 风格的正则解析工具
-                const createRegExp = (p) => new RegExp(p.replace('ℹ️', ''), p.includes('ℹ️') ? 'i' : undefined);
-                const rules = ruleString.split('🕳').filter(i => i).map(i => {
-                    let [outPattern, tagPattern = '.*'] = i.split('🏷');
-                    return {
-                        outRegex: createRegExp(outPattern),
-                        tagRegex: createRegExp(tagPattern)
+                function createRegExp(pattern) {
+                    // 默认开启忽略大小写 'i'，除非显式指定
+                    const isCaseInsensitive = pattern.includes('ℹ️');
+                    const cleanPattern = pattern.replace('ℹ️', '');
+                    return new RegExp(cleanPattern, 'i'); // 强制 i 模式以提高匹配率
+                }
+
+                const outboundRules = ruleString.split('🕳').filter(i => i).map(i => {
+                    let [outboundPattern, tagPattern = '.*'] = i.split('🏷');
+                    return { 
+                        outRegex: createRegExp(outboundPattern), 
+                        tagRegex: createRegExp(tagPattern) 
                     };
                 });
 
-                // 4. 根据规则分流节点名称
-                finalConfig.outbounds.forEach(outbound => {
+                config.outbounds.forEach(outbound => {
                     if (['selector', 'urltest'].includes(outbound.type)) {
                         if (!Array.isArray(outbound.outbounds)) outbound.outbounds = [];
                         
-                        rules.forEach(rule => {
+                        outboundRules.forEach(rule => {
+                            // 检查当前策略组名是否符合规则
                             if (rule.outRegex.test(outbound.tag)) {
+                                // 筛选匹配的节点
                                 const matchedTags = uniqueNodes
                                     .filter(node => rule.tagRegex.test(node.tag))
                                     .map(node => node.tag);
-                                outbound.outbounds.push(...matchedTags);
+                                
+                                if (matchedTags.length > 0) {
+                                    outbound.outbounds.push(...matchedTags);
+                                }
                             }
                         });
                         // 去重
@@ -1521,23 +1516,19 @@
                     }
                 });
 
-                // 5. 兜底逻辑：处理空分组并追加节点实体
-                finalConfig.outbounds.forEach(outbound => {
+                // 兜底
+                config.outbounds.forEach(outbound => {
                     if (['selector', 'urltest'].includes(outbound.type) && outbound.outbounds.length === 0) {
-                        outbound.outbounds.push("DIRECT"); 
+                        outbound.outbounds.push("DIRECT");
                     }
                 });
 
-                finalConfig.outbounds.push(...uniqueNodes);
+                config.outbounds.push(...uniqueNodes);
 
-                // 输出
-                document.getElementById('outputArea').value = JSON.stringify(finalConfig, null, 2);
-                setStatus(`转换成功：${uniqueNodes.length} 个节点`, 'success');
-                document.getElementById('nodeCount').textContent = uniqueNodes.length;
-
+                document.getElementById('outputArea').value = JSON.stringify(config, null, 2);
+                setStatus(`成功：${uniqueNodes.length} 个节点`, 'success');
             } catch (err) {
-                console.error(err);
-                setStatus(`转换出错: ${err.message}`, 'error');
+                setStatus(`出错: ${err.message}`, 'error');
             }
         }
 
